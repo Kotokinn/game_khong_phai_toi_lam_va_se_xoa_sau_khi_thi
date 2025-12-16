@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Game Máy Bay - Canvas</title>
+<style>
+    body {
+        background: #000;
+        color: white;
+        text-align: center;
+        font-family: Arial;
+        margin: 0;
+        overflow: hidden;
+    }
+    #stats {
+        padding: 10px;
+        font-size: 22px;
+    }
+    canvas {
+        background: black;
+        border: 3px solid white;
+        display: block;
+        margin: 0 auto;
+    }
+    #info {
+        position: absolute;
+        top: 40%;
+        left: 30%;
+        font-size: 50px;
+        color: white;
+        user-select: none;
+    }
+</style>
+</head>
+<body>
+
+<div id="info">Click hoặc Space để bắt đầu</div>
+
+<div id="stats">
+    Nhiên liệu: <span id="fuelText">100</span> |
+    Điểm: <span id="score">0</span> |
+    Mạng: <span id="lives">3</span>
+</div>
+
+<canvas id="game" width="800" height="1000"></canvas>
+
+<script>
+/* ==================== CANVAS ==================== */
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+/* ==================== HUD ==================== */
+const fuelText = document.getElementById("fuelText");
+const scoreText = document.getElementById("score");
+const livesText = document.getElementById("lives");
+
+/* ==================== GAME STATE ==================== */
+let fuel = 100;
+let score = 0;
+let lives = 3;
+let speed = 4;
+let playing = false;
+
+/* ==================== LOAD IMAGES ==================== */
+const bg = new Image(); bg.src = "./img/nen.webp";
+const playerImg = new Image(); playerImg.src = "./img/may01.png";
+const enemy1Img = new Image(); enemy1Img.src = "./img/quai01.png";
+const enemy2Img = new Image(); enemy2Img.src = "./img/quai1.png";
+const fuelImg = new Image(); fuelImg.src = "./img/vatpham.png";
+const starImg = new Image(); starImg.src = "./img/vatpham1.png";
+
+/* ==================== ENTITIES ==================== */
+let player = { x: 365, y: 900, w: 70, h: 70 };
+let bullets = [];
+let enemies = [];
+let fuels = [];
+let stars = [];
+let bgY = 0;
+
+/* ==================== START GAME ==================== */
+document.addEventListener("click", startGame);
+document.addEventListener("keydown", startGame);
+
+function startGame(e) {
+    if (!playing) {
+        if (e.type === "keydown" && e.key !== " " && e.key !== "Enter") return;
+        playing = true;
+        document.getElementById("info").innerText = "";
+        update();
+    }
+}
+
+/* ==================== INPUT ==================== */
+let keys = {};
+document.addEventListener("keydown", e => {
+    keys[e.key] = true;
+    if (e.key === " ") shoot();
+});
+document.addEventListener("keyup", e => { keys[e.key] = false; });
+
+/* ==================== SHOOT ==================== */
+function shoot() {
+    if (!playing) return;
+    bullets.push({ x: player.x + 30, y: player.y, w: 8, h: 20 });
+}
+
+/* ==================== SPAWN ==================== */
+function spawnEnemy() {
+    let img = Math.random() > 0.5 ? enemy1Img : enemy2Img;
+    let size = img === enemy1Img ? 70 : 100;
+
+    enemies.push({
+        x: Math.random() * (800 - size),
+        y: -100,
+        w: size,
+        h: size,
+        img: img
+    });
+}
+
+function spawnFuel() {
+    fuels.push({ x: Math.random() * 750, y: -50, w: 50, h: 50, img: fuelImg });
+}
+
+function spawnStar() {
+    stars.push({ x: Math.random() * 760, y: -30, w: 35, h: 35, img: starImg });
+}
+
+/* ==================== COLLISION ==================== */
+function collide(a, b) {
+    return !(
+        a.x + a.w < b.x ||
+        a.x > b.x + b.w ||
+        a.y + a.h < b.y ||
+        a.y > b.y + b.h
+    );
+}
+
+/* ==================== MOVE PLAYER ==================== */
+function movePlayer() {
+    if (keys["ArrowLeft"] && player.x > 0) player.x -= 7;
+    if (keys["ArrowRight"] && player.x < 730) player.x += 7;
+    if (keys["ArrowUp"] && player.y > 0) player.y -= 7;
+    if (keys["ArrowDown"] && player.y < 930) player.y += 7;
+}
+
+/* ==================== MAIN GAME LOOP ==================== */
+function update() {
+    if (!playing) return;
+
+    // Background scroll
+    bgY += 2;
+    if (bgY > canvas.height) bgY = 0;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bg, 0, bgY, 800, 1000);
+    ctx.drawImage(bg, 0, bgY - 1000, 800, 1000);
+
+    movePlayer();
+    ctx.drawImage(playerImg, player.x, player.y, player.w, player.h);
+
+    /* ---------- BULLETS ---------- */
+    bullets.forEach((b, i) => {
+        b.y -= 10;
+        ctx.fillStyle = "lime";
+        ctx.fillRect(b.x, b.y, b.w, b.h);
+
+        enemies.forEach((e, ei) => {
+            if (collide(b, e)) {
+                bullets.splice(i, 1);
+                enemies.splice(ei, 1);
+                score += 5;
+                scoreText.innerText = score;
+            }
+        });
+    });
+
+    /* ---------- ENEMIES ---------- */
+    enemies.forEach((e, i) => {
+        e.y += speed;
+        ctx.drawImage(e.img, e.x, e.y, e.w, e.h);
+
+        if (collide(player, e)) {
+            enemies.splice(i, 1);
+            lives--;
+            livesText.innerText = lives;
+            if (lives <= 0) gameOver();
+        }
+
+        if (e.y > 1000) {
+            enemies.splice(i, 1);
+            spawnFuel();
+        }
+    });
+
+    /* ---------- FUEL ---------- */
+    fuels.forEach((f, i) => {
+        f.y += 4;
+        ctx.drawImage(f.img, f.x, f.y, f.w, f.h);
+
+        if (collide(player, f)) {
+            fuel = Math.min(100, fuel + 20);
+            fuelText.innerText = fuel;
+            fuels.splice(i, 1);
+        }
+    });
+
+    /* ---------- STARS ---------- */
+    stars.forEach((s, i) => {
+        s.y += 4;
+        ctx.drawImage(s.img, s.x, s.y, s.w, s.h);
+
+        if (collide(player, s)) {
+            score += 10;
+            scoreText.innerText = score;
+            stars.splice(i, 1);
+        }
+    });
+
+    requestAnimationFrame(update);
+}
+
+/* ==================== LOOP SPAWN ==================== */
+setInterval(spawnEnemy, 1500);
+setInterval(spawnStar, 3500);
+
+/* ==================== FUEL REDUCE ==================== */
+setInterval(() => {
+    if (!playing) return;
+    fuel--;
+    fuelText.innerText = fuel;
+    if (fuel <= 0) gameOver();
+}, 1000);
+
+/* ==================== GAME OVER ==================== */
+function gameOver() {
+    playing = false;
+    alert("Game Over! Điểm: " + score);
+    location.reload();
+}
+</script>
+
+</body>
+</html>
