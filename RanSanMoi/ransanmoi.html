@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Snake — Rắn săn mồi</title>
+  <style>
+    :root {
+      --bg: #0b66a3;
+      --board: #063a57;
+      --snake: #d4f1ff;
+      --food: #ff6b6b
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center
+    }
+
+    canvas {
+      background: var(--board);
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.3)
+    }
+
+    #overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      color: white;
+      font-family: Inter, Arial, sans-serif;
+      text-align: center
+    }
+
+    button {
+      margin-top: 16px;
+      padding: 10px 18px;
+      border: none;
+      border-radius: 8px;
+      background: #ffffff22;
+      color: white;
+      cursor: pointer;
+      font-size: 16px
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="game" width="720" height="720"></canvas>
+  <div id="overlay" style="display:none">
+    <h1>Game Over</h1>
+    <div id="scoreText">Điểm: 0</div>
+    <button id="restart">Chơi lại</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const overlay = document.getElementById('overlay');
+    const scoreText = document.getElementById('scoreText');
+    const restartBtn = document.getElementById('restart');
+
+    const GRID = 25;
+    const CELL = canvas.width / GRID;
+    let speed = 8;
+
+    let snake, dir, nextDir, food, running, score, lastTick;
+
+    function reset() {
+      snake = [
+        { x: Math.floor(GRID / 2), y: Math.floor(GRID / 2) },
+        { x: Math.floor(GRID / 2) - 1, y: Math.floor(GRID / 2) }
+      ];
+      dir = { x: 1, y: 0 };
+      nextDir = { x: 1, y: 0 };
+      score = 0;
+      running = true;
+      overlay.style.display = 'none';
+      placeFood();
+      lastTick = 0;
+    }
+
+    function placeFood() {
+      while (true) {
+        const x = Math.floor(Math.random() * GRID);
+        const y = Math.floor(Math.random() * GRID);
+        if (!snake.some(s => s.x === x && s.y === y)) { food = { x, y }; return; }
+      }
+    }
+
+    function tick() {
+      dir = nextDir;
+      const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+      if (head.x < 0 || head.x >= GRID || head.y < 0 || head.y >= GRID) return gameOver();
+      if (snake.some(s => s.x === head.x && s.y === head.y)) return gameOver();
+      snake.unshift(head);
+      if (head.x === food.x && head.y === food.y) {
+        score++;
+        if (score % 4 === 0) speed = Math.min(speed + 1, 20);
+        placeFood();
+      } else snake.pop();
+    }
+
+    function draw() {
+      ctx.fillStyle = '#063a57';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#ff6b6b';
+      drawCell(food.x, food.y);
+      ctx.fillStyle = '#d4f1ff';
+      snake.forEach((s, i) => drawCell(s.x, s.y, i === 0 ? 0.9 : 0.8));
+    }
+
+    function drawCell(x, y, scale = 1) {
+      const pad = (1 - scale) * CELL / 2;
+      ctx.fillRect(x * CELL + pad, y * CELL + pad, CELL * scale, CELL * scale);
+    }
+
+    function gameOver() {
+      running = false;
+      overlay.style.display = 'flex';
+      scoreText.textContent = 'Điểm: ' + score;
+    }
+
+    function loop(ts) {
+      if (!lastTick) lastTick = ts;
+      const step = 1 / speed;
+      if (running && (ts - lastTick) / 1000 >= step) {
+        tick();
+        lastTick = ts;
+      }
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    window.addEventListener('keydown', e => {
+      const m = { ArrowUp: { x: 0, y: -1 }, ArrowDown: { x: 0, y: 1 }, ArrowLeft: { x: -1, y: 0 }, ArrowRight: { x: 1, y: 0 }, w: { x: 0, y: -1 }, a: { x: -1, y: 0 }, s: { x: 0, y: 1 }, d: { x: 1, y: 0 } }[e.key];
+      if (m && !(m.x === -dir.x && m.y === -dir.y)) nextDir = m;
+    });
+
+    restartBtn.onclick = reset;
+    reset();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+
+</html>

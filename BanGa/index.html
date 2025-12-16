@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Airplane Game Sprite Version</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #202020;
+        }
+
+        canvas {
+            display: block;
+            margin: auto;
+            background-image: url(bg/i1.png);
+        }
+
+        #info {
+            position: absolute;
+            top: 15%;
+            left: 25%;
+            font-size: 50px;
+            color: black;
+            user-select: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="info">Click để bắt đầu</div>
+    <canvas id="game" width="800" height="400"></canvas>
+
+    <script>
+        const canvas = document.getElementById("game");
+        const ctx = canvas.getContext("2d");
+
+        let playing = false;
+
+        /* ---------------- SPRITE LOADER ---------------- */
+        function loadImages(paths) {
+            return paths.map(p => {
+                const img = new Image();
+                img.src = p;
+                return img;
+            });
+        }
+
+        /* ---------------- SPRITE SET ---------------- */
+        const planeFrames = loadImages([
+            "player/i1.png"
+        ]);
+
+        const birdFrames = loadImages([
+            "bird/image(1).png",
+            "bird/image(2).png",
+            "bird/image(3).png",
+            "bird/image(4).png"
+        ]);
+
+        const starImg = new Image();
+        starImg.src = "star/i1.png";
+
+        const fuelImg = new Image();
+        fuelImg.src = "fuel/i1.png";
+
+        /* ---------------- GAME OBJECTS ---------------- */
+        let plane = {
+            x: 100, y: 250, w: 50, h: 40,
+            speed: 4,
+            frame: 0
+        };
+
+        let bullets = [];
+        let birds = [];
+        let stars = [];
+        let fuels = [];
+
+        let fuel = 100;
+        let score = 0;
+        let birdSpeed = 3;
+
+        /* ---------------- CLICK START ---------------- */
+        document.addEventListener("click", () => {
+            if (!playing) {
+                playing = true;
+                document.getElementById("info").innerText = "";
+                spawnBirds();
+                reduceFuel();
+                gameLoop();
+            }
+        });
+        document.addEventListener("keydown", function (event) {
+            if (!playing) {
+                playing = true;
+                document.getElementById("info").innerText = "";
+                spawnBirds();
+                reduceFuel();
+                gameLoop();
+            }
+        });
+
+        /* ---------------- MOVEMENT ---------------- */
+        let keys = {};
+        document.addEventListener("keydown", e => keys[e.key] = true);
+        document.addEventListener("keyup", e => keys[e.key] = false);
+
+        function movePlane() {
+            if (keys["w"] || keys["ArrowUp"]) plane.y -= plane.speed;
+            if (keys["s"] || keys["ArrowDown"]) plane.y += plane.speed;
+            if (keys["a"] || keys["ArrowLeft"]) plane.x -= plane.speed;
+            if (keys["d"] || keys["ArrowRight"]) plane.x += plane.speed;
+        }
+
+        /* ---------------- SHOOT ---------------- */
+        document.addEventListener("keydown", e => {
+            if (e.key === " ") {
+                bullets.push({ x: plane.x + plane.w, y: plane.y + plane.h / 2, w: 10, h: 4 });
+            }
+        });
+
+        /* ---------------- RANDOM OBJECTS ---------------- */
+        function spawnBirds() {
+            birds = [];
+            let count = Math.floor(Math.random() * 6) + 5; // 5–10 con
+            for (let i = 0; i < count; i++) {
+                birds.push({
+                    x: 800 + Math.random() * 400,
+                    y: Math.random() * 450,
+                    w: 50, h: 40,
+                    frame: 0
+                });
+            }
+        }
+
+        function spawnStar() {
+            stars.push({
+                x: 800,
+                y: Math.random() * 450,
+                w: 25, h: 25
+            });
+        }
+
+        function spawnFuel() {
+            fuels.push({
+                x: 800,
+                y: Math.random() * 450,
+                w: 30, h: 30
+            });
+        }
+
+        /* ---------------- FUEL TIMER ---------------- */
+        function reduceFuel() {
+            if (!playing) return;
+            fuel -= 1;
+            if (fuel <= 0) return gameOver("Hết nhiên liệu!");
+
+            setTimeout(reduceFuel, 1000);
+        }
+
+        /* ---------------- COLLISION ---------------- */
+        function collide(a, b) {
+            return (
+                a.x < b.x + b.w &&
+                a.x + a.w > b.x &&
+                a.y < b.y + b.h &&
+                a.y + a.h > b.y
+            );
+        }
+
+        /* ---------------- DRAW WITH FRAME ---------------- */
+        function drawSprite(frames, obj) {
+            obj.frame = (obj.frame + 0.15) % frames.length;
+            ctx.drawImage(frames[Math.floor(obj.frame)], obj.x, obj.y, obj.w, obj.h);
+        }
+
+        /* ---------------- GAME LOOP ---------------- */
+        function gameLoop() {
+            if (!playing) return;
+
+            ctx.clearRect(0, 0, 800, 400);
+            movePlane();
+
+            /* PLANE */
+            drawSprite(planeFrames, plane);
+
+            /* BULLETS */
+            ctx.fillStyle = "white";
+            bullets.forEach((b, i) => {
+                b.x += 8;
+                ctx.fillRect(b.x, b.y, b.w, b.h);
+
+                birds.forEach((bird, j) => {
+                    if (collide(b, bird)) {
+                        birds.splice(j, 1);
+                        bullets.splice(i, 1);
+                    }
+                });
+            });
+
+            /* BIRDS */
+            birds.forEach((bird, i) => {
+                bird.x -= birdSpeed;
+
+                drawSprite(birdFrames, bird);
+
+                if (collide(plane, bird)) gameOver("Máy bay đâm vào chim!");
+
+                if (bird.x < -60) {
+                    birds.splice(i, 1);
+                    birdSpeed += 0.2;
+                    spawnFuel();
+                    spawnStar();
+                }
+            });
+
+            if (birds.length === 0) spawnBirds();
+
+            /* STAR */
+            stars.forEach((s, i) => {
+                s.x -= 4;
+                ctx.drawImage(starImg, s.x, s.y, s.w, s.h);
+                if (collide(plane, s)) {
+                    score += 10;
+                    stars.splice(i, 1);
+                }
+            });
+
+            /* FUEL */
+            fuels.forEach((f, i) => {
+                f.x -= 3;
+                ctx.drawImage(fuelImg, f.x, f.y, f.w, f.h);
+
+                if (collide(plane, f)) {
+                    fuel += 35;
+                    if (fuel > 100) fuel = 100;
+                    fuels.splice(i, 1);
+                }
+            });
+
+            /* HUD */
+            ctx.fillStyle = "white";
+            ctx.fillText("Điểm: " + score, 10, 20);
+            ctx.fillText("Nhiên liệu: " + fuel, 10, 40);
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        /* ---------------- GAME OVER ---------------- */
+        function gameOver(msg) {
+            playing = false;
+            alert(msg + "\nĐiểm: " + score);
+            location.reload();
+        }
+
+    </script>
+
+</body>
+
+</html>

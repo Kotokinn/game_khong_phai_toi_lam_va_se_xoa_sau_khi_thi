@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Flappy Bird Đơn Giản</title>
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            background: #70c5ce;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            display: block;
+            margin: auto;
+            background: linear-gradient(to bottom, #70c5ce, #ffffff);
+            border: 4px solid #333;
+            border-radius: 10px;
+        }
+
+        #restart {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ffcc00;
+            border: none;
+            padding: 10px 25px;
+            font-size: 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: none;
+            box-shadow: 0 4px 0 #cc9900;
+        }
+    </style>
+</head>
+
+<body>
+    <button id="restart">Restart</button>
+    <canvas id="game" width="800" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById("game");
+        const ctx = canvas.getContext("2d");
+        const restartBtn = document.getElementById("restart");
+
+        const pipeTop = new Image();
+        const pipe = new Image();
+        pipe.src = "./pipe.png";
+        pipeTop.src = "./image.png";
+        const birdImg = new Image();
+        birdImg.src = "./bird.png"
+
+        let bird, pipes, gravity, jump, score, gameOver, pipeSpeed, pipeTimer, pipeInterval;
+        function resetGame() {
+            bird = { x: 100, y: 300, w: 35, h: 35, vy: 0 };
+            pipes = [];
+            gravity = 0.4;
+            jump = -7.5;
+            score = 0;
+            pipeSpeed = 3;
+            pipeTimer = 0;
+            pipeInterval = 90; // frame giữa mỗi ống
+            gameOver = false;
+            restartBtn.style.display = "none";
+        }
+
+        function createPipe() {
+            const gap = 150;
+            const topHeight = Math.random() * (canvas.height - gap - 100) + 50;
+            pipes.src = "pipe.png"
+            pipes.push({
+                x: canvas.width,
+                top: topHeight,
+                bottom: topHeight + gap,
+                w: 70,
+            });
+        }
+
+        function update() {
+            if (gameOver) return;
+
+            bird.vy += gravity;
+            bird.y += bird.vy;
+
+            // Sinh ống đều
+            pipeTimer++;
+            if (pipeTimer > pipeInterval) {
+                createPipe();
+                pipeTimer = 0;
+            }
+
+            for (let i = 0; i < pipes.length; i++) {
+                const p = pipes[i];
+                p.x -= pipeSpeed;
+
+                // Va chạm
+                if (
+                    bird.x < p.x + p.w &&
+                    bird.x + bird.w > p.x &&
+                    (bird.y < p.top || bird.y + bird.h > p.bottom)
+                ) {
+                    gameOver = true;
+                    restartBtn.style.display = "block";
+                }
+
+                // Điểm
+                if (p.x + p.w < bird.x && !p.passed) {
+                    score++;
+                    p.passed = true;
+                }
+            }
+
+            pipes = pipes.filter(p => p.x + p.w > 0);
+
+            // Chim rơi hoặc bay quá cao
+            if (bird.y + bird.h > canvas.height || bird.y < 0) {
+                gameOver = true;
+                restartBtn.style.display = "block";
+            }
+
+            draw();
+            requestAnimationFrame(update);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Vẽ ống
+            ctx.fillStyle = "#228B22";
+            // ctx.src = "./pipe.png"
+
+            ctx.getElementById
+            pipes.forEach(p => {
+                // ctx.fillRect(p.x, 0, p.w, p.top);
+                // ctx.fillRect(p.x, p.bottom, p.w, canvas.height - p.bottom);
+                ctx.drawImage(pipe, p.x, p.bottom, p.w, canvas.height - p.bottom);
+                ctx.drawImage(pipeTop, p.x, 0, p.w, p.top);
+            });
+
+            // Vẽ chim
+            ctx.fillStyle = "yellow";
+            ctx.drawImage(birdImg, bird.x, bird.y, bird.w, bird.h);
+
+            // Vẽ điểm
+            ctx.fillStyle = "#000";
+            ctx.font = "28px Arial";
+            ctx.fillText("Score: " + score, 20, 40);
+
+            if (gameOver) {
+                ctx.fillStyle = "red";
+                ctx.font = "48px Arial";
+                ctx.fillText("GAME OVER", canvas.width / 2 - 150, canvas.height / 2);
+            }
+        }
+
+        function flap() {
+            if (!gameOver) bird.vy = jump;
+        }
+
+        document.addEventListener("keydown", e => {
+            if (e.code === "Space") flap();
+        });
+        document.addEventListener("click", flap);
+
+        restartBtn.addEventListener("click", () => {
+            resetGame();
+            update();
+        });
+
+        resetGame();
+        update();
+    </script>
+</body>
+
+</html>
